@@ -4,9 +4,8 @@ export const ARTIST_NAME = "RUSHIKESH";
 export const HERO_SUBTITLE = "From 1999 to 2025";
 export const HERO_QUOTE = "Photography is the story I fail to put into words.";
 
-// YouTube Video ID (Extracted from: https://youtu.be/OubcGBmaKiQ)
-// This is a cinematic video background.
-export const HERO_YOUTUBE_ID = "OubcGBmaKiQ";
+// 4K Cinematic Photography Background Image
+export const HERO_IMAGE_URL = "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=2560&auto=format&fit=crop";
 
 // Initial Mock Data - Empty Albums for User Upload
 export const INITIAL_ALBUMS: Album[] = [

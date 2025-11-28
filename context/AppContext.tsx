@@ -37,10 +37,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  const createAlbum = (title: string, subtitle: string, description: string) => {
+    const newAlbum: Album = {
+      id: `album-${Date.now()}`,
+      title,
+      subtitle,
+      description,
+      coverPhotoId: "",
+      photos: []
+    };
+    setAlbums(prev => [...prev, newAlbum]);
+  };
+
+  const updateAlbum = (id: string, updates: Partial<Pick<Album, 'title' | 'subtitle' | 'description'>>) => {
+    setAlbums(prev => prev.map(album => {
+      if (album.id === id) {
+        return { ...album, ...updates };
+      }
+      return album;
+    }));
+  };
+
   const getAlbum = (id: string) => albums.find(a => a.id === id);
 
   return (
-    <AppContext.Provider value={{ albums, addPhotoToAlbum, addPhotosToAlbum, deletePhotosFromAlbum, getAlbum }}>
+    <AppContext.Provider value={{ 
+      albums, 
+      addPhotoToAlbum, 
+      addPhotosToAlbum, 
+      deletePhotosFromAlbum, 
+      getAlbum,
+      createAlbum,
+      updateAlbum
+    }}>
       {children}
     </AppContext.Provider>
   );

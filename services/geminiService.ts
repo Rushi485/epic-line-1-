@@ -4,7 +4,7 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 // API Key is injected via process.env.API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-export const generateImageInfo = async (base64Image: string): Promise<{ caption: string; location: string }> => {
+export const generateImageInfo = async (base64Image: string): Promise<{ caption: string; location: string; tags: string[]; dominantColors: string[] }> => {
   try {
     const model = "gemini-2.5-flash"; // Fast model for image analysis
     
@@ -12,9 +12,19 @@ export const generateImageInfo = async (base64Image: string): Promise<{ caption:
       type: Type.OBJECT,
       properties: {
         caption: { type: Type.STRING, description: "A poetic, artistic caption for the image, max 15 words." },
-        location: { type: Type.STRING, description: "A plausible generic location name for the scene (e.g., 'Misty Valley', 'Urban Center')." }
+        location: { type: Type.STRING, description: "A plausible generic location name for the scene (e.g., 'Misty Valley', 'Urban Center')." },
+        tags: { 
+          type: Type.ARRAY, 
+          items: { type: Type.STRING }, 
+          description: "5 descriptive tags for the image (e.g., 'sunset', 'portrait', 'moody')." 
+        },
+        dominantColors: { 
+          type: Type.ARRAY, 
+          items: { type: Type.STRING }, 
+          description: "3-5 dominant hex color codes from the image." 
+        }
       },
-      required: ["caption", "location"],
+      required: ["caption", "location", "tags", "dominantColors"],
     };
 
     const response = await ai.models.generateContent({
@@ -22,7 +32,7 @@ export const generateImageInfo = async (base64Image: string): Promise<{ caption:
       contents: {
         parts: [
             { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-            { text: "Analyze this image for a professional photography portfolio. Generate a creative caption and a plausible location name." }
+            { text: "Analyze this image for a professional photography portfolio. Return a JSON object with a creative caption, location, 5 descriptive tags, and 3-5 dominant hex color codes." }
         ]
       },
       config: {
@@ -34,17 +44,18 @@ export const generateImageInfo = async (base64Image: string): Promise<{ caption:
     let text = response.text;
     if (!text) throw new Error("No response from AI");
     
-    // Clean up Markdown if present (common with some models/configurations)
+    // Clean up Markdown if present
     text = text.replace(/^```json\n/, '').replace(/\n```$/, '').trim();
     
     try {
         return JSON.parse(text);
     } catch (e) {
         console.warn("JSON parse failed, raw text:", text);
-        // Fallback if JSON is malformed
         return {
             caption: "Captured in the moment.",
-            location: "Unknown Location"
+            location: "Unknown Location",
+            tags: ["photography", "art"],
+            dominantColors: ["#000000", "#ffffff"]
         };
     }
     
@@ -52,7 +63,9 @@ export const generateImageInfo = async (base64Image: string): Promise<{ caption:
     console.error("Gemini Analysis Failed:", error);
     return {
       caption: "Captured in the moment.",
-      location: "Unknown Location"
+      location: "Unknown Location",
+      tags: ["photography", "art"],
+      dominantColors: ["#000000", "#ffffff"]
     };
   }
 };
