@@ -1,6 +1,6 @@
 import { Album } from './types';
 
-export const ARTIST_NAME = "RUSHIKESH";
+export const ARTIST_NAME = "EPIC LINE 1";
 export const HERO_SUBTITLE = "From 1999 to 2025";
 export const HERO_QUOTE = "Photography is the story I fail to put into words.";
 

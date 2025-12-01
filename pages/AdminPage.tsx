@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { generateImageInfo } from '../services/geminiService';
+import { uploadImageToStorage } from '../services/storageService';
 import { Upload, Loader2, CheckCircle, Image as ImageIcon, Sparkles, Plus, Edit2, X, FolderPlus } from 'lucide-react';
 import { Photo } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,8 +11,10 @@ const AdminPage: React.FC = () => {
   const [selectedAlbumId, setSelectedAlbumId] = useState(albums[0]?.id || "");
   
   // Media Upload State
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<{
     caption: string;
     location: string;
@@ -37,15 +40,15 @@ const AdminPage: React.FC = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
-        const reader = new FileReader();
+        setSelectedFile(file);
         
+        const reader = new FileReader();
         reader.onloadend = () => {
             const base64String = reader.result as string;
             setImageUrl(base64String);
             setAnalysisResult(null);
             setUploadSuccess(false);
         };
-        
         reader.readAsDataURL(file);
     }
   };
@@ -57,34 +60,51 @@ const AdminPage: React.FC = () => {
     // Remove header from base64 string for API
     const base64Data = imageUrl.split(',')[1];
     
-    const result = await generateImageInfo(base64Data);
-    setAnalysisResult(result);
-    setIsAnalyzing(false);
+    try {
+        const result = await generateImageInfo(base64Data);
+        setAnalysisResult(result);
+    } catch (e) {
+        console.error(e);
+    } finally {
+        setIsAnalyzing(false);
+    }
   };
 
-  const handleSavePhoto = () => {
-    if (!analysisResult || !imageUrl) return;
-
-    const newPhoto: Photo = {
-        id: `p-${Date.now()}`,
-        url: imageUrl,
-        caption: analysisResult.caption,
-        location: analysisResult.location,
-        tags: analysisResult.tags,
-        dominantColors: analysisResult.dominantColors,
-        date: new Date().toISOString().split('T')[0]
-    };
-
-    addPhotoToAlbum(selectedAlbumId, newPhoto);
-    setUploadSuccess(true);
+  const handleSavePhoto = async () => {
+    if (!analysisResult || !imageUrl || !selectedFile) return;
     
-    // Reset after delay
-    setTimeout(() => {
-        setUploadSuccess(false);
-        setAnalysisResult(null);
-        setImageUrl('');
-        if(fileInputRef.current) fileInputRef.current.value = '';
-    }, 3000);
+    setIsUploading(true);
+
+    try {
+        const uploadedUrl = await uploadImageToStorage(selectedFile);
+
+        const newPhoto: Photo = {
+            id: `p-${Date.now()}`,
+            url: uploadedUrl,
+            caption: analysisResult.caption,
+            location: analysisResult.location,
+            tags: analysisResult.tags,
+            dominantColors: analysisResult.dominantColors,
+            date: new Date().toISOString().split('T')[0]
+        };
+
+        addPhotoToAlbum(selectedAlbumId, newPhoto);
+        setUploadSuccess(true);
+        
+        // Reset after delay
+        setTimeout(() => {
+            setUploadSuccess(false);
+            setAnalysisResult(null);
+            setImageUrl('');
+            setSelectedFile(null);
+            if(fileInputRef.current) fileInputRef.current.value = '';
+        }, 3000);
+    } catch (error) {
+        console.error("Failed to upload/save:", error);
+        alert("Upload failed.");
+    } finally {
+        setIsUploading(false);
+    }
   };
 
   // --- Album Management Logic ---
@@ -106,8 +126,6 @@ const AdminPage: React.FC = () => {
     e.preventDefault();
     if (albumMode === 'create') {
         createAlbum(albumForm.title, albumForm.subtitle, albumForm.description);
-        // Select the newly created album (it will be the last one)
-        // Logic handled by useEffect or could force it here, but useEffect is safer
     } else {
         updateAlbum(selectedAlbumId, albumForm);
     }
@@ -255,9 +273,10 @@ const AdminPage: React.FC = () => {
 
                             <button 
                                 onClick={handleSavePhoto}
-                                className="w-full mt-8 py-4 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-all shadow-lg hover:shadow-green-500/20"
+                                disabled={isUploading}
+                                className="w-full mt-8 py-4 bg-green-600 hover:bg-green-500 text-white rounded-lg font-bold transition-all shadow-lg hover:shadow-green-500/20 disabled:opacity-50 flex justify-center items-center gap-2"
                             >
-                                Publish to Portfolio
+                                {isUploading ? <Loader2 className="animate-spin" /> : "Publish to Portfolio"}
                             </button>
                         </div>
                     ) : (

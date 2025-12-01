@@ -1,5 +1,5 @@
 {
-  "name": "cinematic-artist-portfolio",
+  "name": "epic-line-1",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -14,7 +14,8 @@
     "@google/genai": "^1.30.0",
     "react-router-dom": "^7.9.6",
     "lucide-react": "^0.554.0",
-    "framer-motion": "^12.23.24"
+    "framer-motion": "^12.23.24",
+    "firebase": "^12.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

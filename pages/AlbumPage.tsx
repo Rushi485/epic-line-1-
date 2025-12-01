@@ -8,6 +8,7 @@ import {
   LayoutGrid, Grid as GridIcon, Columns, ChevronLeft, ChevronRight, Download
 } from 'lucide-react';
 import { generateImageInfo } from '../services/geminiService';
+import { uploadImageToStorage } from '../services/storageService';
 import { Photo } from '../types';
 
 // Helper to read file as base64 for Display (High Quality)
@@ -88,6 +89,7 @@ const AlbumPage: React.FC = () => {
   // Upload State
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -191,25 +193,41 @@ const AlbumPage: React.FC = () => {
     }
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     if (!album) return;
     const completedItems = uploadQueue.filter(i => i.status === 'complete' || i.status === 'error');
     
     if (completedItems.length === 0) return;
 
-    const newPhotos: Photo[] = completedItems.map(item => ({
-        id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        url: item.preview,
-        caption: item.caption || "Uploaded Image",
-        location: item.location || "Unknown",
-        tags: item.tags || [],
-        dominantColors: item.dominantColors || [],
-        date: new Date().toISOString().split('T')[0]
-    }));
+    setIsSaving(true);
 
-    addPhotosToAlbum(album.id, newPhotos);
-    setUploadQueue([]);
-    setIsUploadOpen(false);
+    try {
+        // Parallel Upload to Cloud Storage
+        const photoPromises = completedItems.map(async (item) => {
+            const uploadedUrl = await uploadImageToStorage(item.file);
+            
+            return {
+                id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                url: uploadedUrl, // Cloud URL (or Base64 fallback)
+                caption: item.caption || "Uploaded Image",
+                location: item.location || "Unknown",
+                tags: item.tags || [],
+                dominantColors: item.dominantColors || [],
+                date: new Date().toISOString().split('T')[0]
+            } as Photo;
+        });
+
+        const newPhotos = await Promise.all(photoPromises);
+
+        addPhotosToAlbum(album.id, newPhotos);
+        setUploadQueue([]);
+        setIsUploadOpen(false);
+    } catch (error) {
+        console.error("Failed to save photos", error);
+        alert("Some photos failed to upload. Check console.");
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const removeUploadItem = (tempId: string) => {
@@ -580,11 +598,11 @@ const AlbumPage: React.FC = () => {
                             <button onClick={() => setUploadQueue([])} className="text-xs uppercase tracking-widest text-white/30 hover:text-white">Clear Queue</button>
                             <button 
                                 onClick={handleSaveAll}
-                                disabled={uploadQueue.length === 0 || uploadQueue.some(i => i.status === 'analyzing')}
+                                disabled={uploadQueue.length === 0 || uploadQueue.some(i => i.status === 'analyzing') || isSaving}
                                 className="bg-white text-black px-8 py-3 rounded-lg font-bold hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
-                                {uploadQueue.some(i => i.status === 'analyzing') ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />}
-                                <span>Save to Portfolio</span>
+                                {isSaving ? <Loader2 className="animate-spin" size={16} /> : (uploadQueue.some(i => i.status === 'analyzing') ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle size={16} />)}
+                                <span>{isSaving ? "Uploading..." : "Save to Portfolio"}</span>
                             </button>
                         </div>
                     </div>
